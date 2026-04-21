@@ -137,7 +137,14 @@ export default function Command({ navigate }) {
 
         <Section
           title="Live Triggers · target accounts in the news"
-          right={<span className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500"><span className="live-dot h-1.5 w-1.5 rounded-full bg-green-500" /> HACKER NEWS · 5m</span>}
+          right={
+            <span className="flex items-center gap-2 text-[10px] font-mono text-slate-500">
+              {triggers?.refreshed_at ? <span>Last refreshed {timeAgo(triggers.refreshed_at)}</span> : null}
+              <span className="flex items-center gap-1.5">
+                <span className="live-dot h-1.5 w-1.5 rounded-full bg-green-500" /> HACKER NEWS · 5m
+              </span>
+            </span>
+          }
         >
           {!triggers ? (
             <Skeleton className="h-32" />

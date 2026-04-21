@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, Radio, Search, TrendingUp } from 'lucide-react';
+import { Briefcase, Radio, Search, Send, TrendingUp } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { Empty, Skeleton, Tabs } from '../components/ui.jsx';
 import { timeAgo } from '../lib/format.js';
+import OutreachComposer from '../components/OutreachComposer.jsx';
 
 const PRESETS = [
   'streaming engineering',
@@ -179,22 +180,76 @@ function MARadar() {
 
 function HiringSignals() {
   const [data, setData] = useState(null);
-  useEffect(() => { api.get('/news/hiring').then(setData).catch(() => setData({ boards: [] })); }, []);
+  const [accounts, setAccounts] = useState([]);
+  const [composerAccountId, setComposerAccountId] = useState(null);
+
+  useEffect(() => {
+    api.get('/news/hiring').then(setData).catch(() => setData({ boards: [] }));
+    api.get('/accounts').then(setAccounts).catch(() => setAccounts([]));
+  }, []);
+
+  function resolveAccountId(company) {
+    if (!company) return null;
+    const needle = company.toLowerCase();
+    const exact = accounts.find((a) => a.name.toLowerCase() === needle);
+    if (exact) return exact.id;
+    const loose = accounts.find((a) => a.name.toLowerCase().includes(needle) || needle.includes(a.name.toLowerCase()));
+    return loose?.id || null;
+  }
+
+  async function openReachOut(company) {
+    let id = resolveAccountId(company);
+    if (!id) {
+      try {
+        const created = await api.post('/accounts', {
+          name: company, industry: '—', territory: '—', eng_headcount: 0, icp_score: 5,
+          pain_point: 'Surfaced via Greenhouse leadership hiring signal.',
+          devin_use_case: 'Map pain to Devin use case during first conversation.',
+          opening_line: `Saw the leadership hiring signal at ${company} — thought it was worth reaching out.`
+        });
+        id = created.id;
+        const fresh = await api.get('/accounts');
+        setAccounts(fresh);
+      } catch {
+        alert(`Could not find or create account for ${company}`);
+        return;
+      }
+    }
+    setComposerAccountId(id);
+  }
+
+  const composerAccount = accounts.find((a) => a.id === composerAccountId) || null;
+
   return (
     <div className="space-y-3">
-      <div className="section-title flex items-center gap-1.5"><Briefcase size={12} /> Greenhouse · leadership roles</div>
-      {!data ? <Skeleton className="h-48" /> : !data.boards?.length ? <Empty title="No hiring signals surfaced" /> : (
+      <div className="flex items-center justify-between">
+        <div className="section-title flex items-center gap-1.5"><Briefcase size={12} /> Greenhouse · leadership roles</div>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-electric">
+          LEADERSHIP & SENIOR ROLES ONLY · buying signal filter active
+        </span>
+      </div>
+      {!data ? <Skeleton className="h-48" /> : !data.boards?.flatMap((b) => b.jobs || []).length ? <Empty title="No leadership hiring signals right now" hint="Filter: VP, CTO, Chief, Director, Head of, Principal, Staff, Engineering Manager, Platform Lead, Architecture." /> : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {data.boards.flatMap((b) => b.jobs.map((j) => ({ ...j, board: b.board }))).map((j, i) => (
-            <div key={i} className="card p-3">
-              <div className="text-xs uppercase tracking-wider text-electric">{j.board}</div>
+          {data.boards.flatMap((b) => b.jobs.map((j) => ({ ...j, board: b.board, company: b.company }))).map((j, i) => (
+            <div key={i} className="card flex flex-col p-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs uppercase tracking-wider text-electric">{j.company || j.board}</div>
+                <div className="font-mono text-[10px] text-slate-500">{timeAgo(j.updated_at)}</div>
+              </div>
               <a href={j.url} target="_blank" rel="noopener noreferrer" className="mt-1 block text-sm font-medium text-white hover:text-electric">{j.title}</a>
               <div className="mt-0.5 text-xs text-slate-400">{j.location || '—'}</div>
-              <div className="mt-2 rounded bg-electric/10 px-2 py-1 text-[11px] text-electric">This is a trigger — reach out now</div>
+              <div className="mt-3 flex-1" />
+              <button onClick={() => openReachOut(j.company || j.board)} className="btn-primary mt-2 w-full justify-center text-xs">
+                <Send size={12} /> Reach out now →
+              </button>
             </div>
           ))}
         </div>
       )}
+
+      {composerAccount ? (
+        <OutreachComposer account={composerAccount} contacts={[]} onClose={() => setComposerAccountId(null)} />
+      ) : null}
     </div>
   );
 }

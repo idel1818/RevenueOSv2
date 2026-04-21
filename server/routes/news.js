@@ -13,7 +13,28 @@ function cached(key, ttlMs, fn) {
   });
 }
 
-async function hnSearch(query, hitsPerPage = 20) {
+// Wrap a search term in quotes for Algolia exact-phrase matching.
+// If the string already contains a quoted phrase, pass it through.
+function quoteForExact(q) {
+  const trimmed = String(q || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) return trimmed;
+  return `"${trimmed}"`;
+}
+
+// After HN returns hits, drop any where the company name string is not
+// literally present in title or URL (case-insensitive). Prevents "SAP"
+// matching Apple/SpaceX etc.
+function filterByNameMatch(hits, name) {
+  if (!name) return hits;
+  const needle = name.toLowerCase();
+  return hits.filter((h) => {
+    const hay = `${h.title || ''} ${h.url || ''}`.toLowerCase();
+    return hay.includes(needle);
+  });
+}
+
+async function hnSearchRaw(query, hitsPerPage = 20) {
   const url = `https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(query)}&tags=story&hitsPerPage=${hitsPerPage}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HN ${res.status}`);
@@ -29,6 +50,13 @@ async function hnSearch(query, hitsPerPage = 20) {
     created_at: h.created_at,
     query
   }));
+}
+
+// Exact-phrase HN search for a company name + strict post-filter.
+async function hnSearchCompany(name, hitsPerPage = 20) {
+  const q = quoteForExact(name);
+  const hits = await hnSearchRaw(q, hitsPerPage);
+  return filterByNameMatch(hits, name);
 }
 
 async function newsApi(query, pageSize = 20) {
@@ -53,31 +81,38 @@ async function newsApi(query, pageSize = 20) {
   };
 }
 
+// Generic sector-feed / free-text HN search — preserves raw query (no forced quoting).
+// Callers can pass their own quoted phrases if they want exact match.
 router.get('/hn', async (req, res) => {
   try {
     const query = String(req.query.q || '').trim();
     if (!query) return res.status(400).json({ error: 'q required' });
-    const hits = await cached(`hn:${query}`, 5 * 60 * 1000, () => hnSearch(query, Number(req.query.limit) || 20));
-    res.json({ query, hits });
+    const exact = String(req.query.exact || '') === '1';
+    const limit = Number(req.query.limit) || 20;
+    const searchQ = exact ? quoteForExact(query) : query;
+    let hits = await cached(`hn:${searchQ}`, 5 * 60 * 1000, () => hnSearchRaw(searchQ, limit));
+    if (exact) hits = filterByNameMatch(hits, query);
+    res.json({ query, hits, refreshed_at: new Date().toISOString() });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
+// Account-level trigger feed — always exact-phrase + strict post-filter.
 router.get('/triggers', async (_req, res) => {
   try {
     const accounts = db.prepare('SELECT id, name FROM accounts ORDER BY icp_score DESC LIMIT 20').all();
     const all = [];
     await Promise.all(accounts.map(async (a) => {
       try {
-        const hits = await cached(`hn:${a.name}`, 5 * 60 * 1000, () => hnSearch(a.name, 3));
+        const hits = await cached(`hn:exact:${a.name}`, 5 * 60 * 1000, () => hnSearchCompany(a.name, 6));
         for (const h of hits) {
           all.push({ account_id: a.id, account_name: a.name, ...h });
         }
       } catch { /* noop */ }
     }));
     all.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    res.json({ hits: all.slice(0, 40) });
+    res.json({ hits: all.slice(0, 40), refreshed_at: new Date().toISOString() });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -96,29 +131,52 @@ router.get('/ma', async (_req, res) => {
   }
 });
 
+// Hiring signals — Greenhouse boards filtered to leadership-only titles.
+const LEADERSHIP_RE = /\b(vp|cto|chief|director|head of|principal|staff|engineering manager|platform lead|architect|architecture)\b/i;
+
+// Map of public Greenhouse boards to a canonical account name so we can
+// pre-populate the reach-out modal cleanly.
+const GREENHOUSE_BOARDS = [
+  { slug: 'stripe',               company: 'Stripe' },
+  { slug: 'airbnb',               company: 'Airbnb' },
+  { slug: 'netflix',              company: 'Netflix' },
+  { slug: 'spotifyjobs',          company: 'Spotify' },
+  { slug: 'palantirtechnologies', company: 'Palantir' },
+  { slug: 'coinbase',             company: 'Coinbase' },
+  { slug: 'figma',                company: 'Figma' },
+  { slug: 'databricks',           company: 'Databricks' }
+];
+
 router.get('/hiring', async (_req, res) => {
-  // Greenhouse public boards don't expose a search endpoint — we query a small set of known boards.
-  const boards = ['stripe', 'airbnb', 'netflix', 'spotifyjobs', 'palantirtechnologies', 'coinbase', 'figma', 'databricks'];
   const results = [];
-  await Promise.all(boards.map(async (b) => {
+  await Promise.all(GREENHOUSE_BOARDS.map(async ({ slug, company }) => {
     try {
-      const url = `https://boards-api.greenhouse.io/v1/boards/${b}/jobs?content=true`;
-      const r = await cached(`gh:${b}`, 30 * 60 * 1000, async () => {
+      const url = `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true`;
+      const r = await cached(`gh:${slug}`, 30 * 60 * 1000, async () => {
         const res = await fetch(url);
         if (!res.ok) return { jobs: [] };
         return res.json();
       });
-      const jobs = (r.jobs || []).filter((j) => /\b(vp|head|director|chief|staff|principal|platform|engineering manager)\b/i.test(j.title)).slice(0, 6);
-      results.push({ board: b, jobs: jobs.map((j) => ({ title: j.title, location: j.location?.name, url: j.absolute_url, updated_at: j.updated_at })) });
+      const jobs = (r.jobs || []).filter((j) => LEADERSHIP_RE.test(j.title || '')).slice(0, 6);
+      results.push({
+        board: slug,
+        company,
+        jobs: jobs.map((j) => ({
+          title: j.title,
+          location: j.location?.name,
+          url: j.absolute_url,
+          updated_at: j.updated_at
+        }))
+      });
     } catch { /* noop */ }
   }));
-  res.json({ boards: results });
+  res.json({ boards: results, filter: 'leadership', refreshed_at: new Date().toISOString() });
 });
 
 router.get('/competitor/:name', async (req, res) => {
   try {
     const name = req.params.name;
-    const hits = await cached(`hn:${name}`, 10 * 60 * 1000, () => hnSearch(name, 8));
+    const hits = await cached(`hn:exact:${name}`, 10 * 60 * 1000, () => hnSearchCompany(name, 8));
     res.json({ name, hits });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -154,8 +154,16 @@ export default function AccountDetail({ id, onClose, navigate }) {
                 )}
                 {tab === 'outreach' && (
                   <div className="space-y-3">
-                    {!outreach.length ? <Empty icon={MessageSquare} title="No outreach yet" hint='Click "Quick Reach Out" to log one.' />
-                      : outreach.map((o) => <OutreachRow key={o.id} o={o} />)}
+                    {!outreach.length ? (
+                      <div className="card flex flex-col items-center gap-3 p-6 text-center">
+                        <MessageSquare size={18} className="text-slate-500" />
+                        <div>
+                          <div className="text-sm font-medium text-white">No reach outs yet — log your first one</div>
+                          <div className="text-xs text-slate-400">Logged reach outs, responses, and follow-ups live here.</div>
+                        </div>
+                        <button onClick={() => setShowComposer(true)} className="btn-primary text-xs"><Sparkles size={14} /> Log reach out</button>
+                      </div>
+                    ) : outreach.map((o) => <OutreachRow key={o.id} o={o} />)}
                   </div>
                 )}
                 {tab === 'intelligence' && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Send } from 'lucide-react';
+import { Sparkles, Send, Loader2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { STATUSES } from '../lib/format.js';
 import { ErrorBlock, Field, Modal } from './ui.jsx';
@@ -47,11 +47,16 @@ export default function OutreachComposer({ account: accountProp, contacts: conta
         account_id: Number(accountId),
         contact_title: contact?.title
       });
-      setForm((f) => ({ ...f, message: r.message }));
+      setForm((f) => ({
+        ...f,
+        subject: r.subject || f.subject,
+        message: r.message || r.raw || ''
+      }));
     } catch (e) {
-      setAiErr(e.message.includes('ANTHROPIC_API_KEY')
-        ? new Error('Set ANTHROPIC_API_KEY in .env to enable the AI composer. Copy the opening line field below as a starting point.')
-        : e);
+      const msg = String(e.message || e);
+      setAiErr(msg.includes('ANTHROPIC_API_KEY')
+        ? new Error('ANTHROPIC_API_KEY not set on the server. Add it to .env and restart to enable the AI composer.')
+        : new Error(`AI composer failed: ${msg}`));
     } finally {
       setAiBusy(false);
     }
@@ -105,15 +110,30 @@ export default function OutreachComposer({ account: accountProp, contacts: conta
           <Field label="Follow-up date"><input type="date" className="input" value={form.follow_up_date} onChange={(e) => setForm({ ...form, follow_up_date: e.target.value })} /></Field>
         </div>
 
-        <Field label="Subject / opening line"><input className="input" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></Field>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Draft</div>
+          <button
+            type="button"
+            onClick={compose}
+            disabled={aiBusy || !accountId}
+            className="btn-primary text-sm disabled:opacity-60"
+          >
+            {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {aiBusy ? 'Drafting…' : 'Draft with AI ✦'}
+          </button>
+        </div>
+
+        <Field label="Subject line">
+          <input
+            className="input"
+            placeholder="Short, specific — under 8 words"
+            value={form.subject}
+            onChange={(e) => setForm({ ...form, subject: e.target.value })}
+          />
+        </Field>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Message</div>
-            <button type="button" onClick={compose} disabled={aiBusy || !accountId} className="btn-primary text-xs">
-              <Sparkles size={14} /> {aiBusy ? 'Composing…' : 'AI Outreach Composer'}
-            </button>
-          </div>
+          <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Message</div>
           <textarea rows={10} className="input terminal text-[13px]" placeholder="Message body…" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
           <ErrorBlock error={aiErr} />
           {activeAccount?.opening_line ? (
