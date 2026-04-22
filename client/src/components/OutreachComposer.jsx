@@ -31,9 +31,9 @@ export default function OutreachComposer({ account: accountProp, contacts: conta
   }, [accountProp]);
 
   useEffect(() => {
-    if (!accountId || accountProp) return;
+    if (!accountId || contactsProp) return;
     api.get(`/accounts/${accountId}/contacts`).then(setContacts).catch(() => setContacts([]));
-  }, [accountId, accountProp]);
+  }, [accountId, contactsProp]);
 
   const activeAccount = accountProp || accounts.find((a) => a.id === Number(accountId));
 
