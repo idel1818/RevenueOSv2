@@ -50,8 +50,22 @@ function loadThree() {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${THREE_SRC}"]`);
     if (existing) {
-      existing.addEventListener('load', () => resolve(window.THREE));
-      existing.addEventListener('error', reject);
+      if (window.THREE) return resolve(window.THREE);
+      let settled = false;
+      existing.addEventListener('load', () => { settled = true; resolve(window.THREE); });
+      existing.addEventListener('error', (e) => { settled = true; reject(e); });
+      // If the existing script already finished before we attached listeners,
+      // neither load nor error will fire. Poll briefly, then give up.
+      const start = Date.now();
+      const poll = setInterval(() => {
+        if (settled) { clearInterval(poll); return; }
+        if (window.THREE) { clearInterval(poll); settled = true; resolve(window.THREE); return; }
+        if (Date.now() - start > 5000) {
+          clearInterval(poll);
+          settled = true;
+          reject(new Error('Three.js script present but window.THREE never initialised'));
+        }
+      }, 100);
       return;
     }
     const s = document.createElement('script');
@@ -74,6 +88,7 @@ export default function BattleMap({ navigate }) {
   const [territory, setTerritory] = useState('All');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sceneReady, setSceneReady] = useState(false);
 
   // Fetch data
   useEffect(() => {
@@ -397,19 +412,22 @@ export default function BattleMap({ navigate }) {
           renderer.dispose();
         }
       };
+      if (!disposed) setSceneReady(true);
     }).catch((e) => {
       if (!disposed) setError(e);
     });
 
     return () => {
       disposed = true;
+      setSceneReady(false);
       if (rafId) cancelAnimationFrame(rafId);
       if (stateRef.current?.dispose) stateRef.current.dispose();
       stateRef.current = null;
     };
   }, [accounts]);
 
-  // Hide/show dots based on filter without rebuilding scene
+  // Hide/show dots based on filter without rebuilding scene. Depends on
+  // sceneReady so that it re-runs once the async Three.js setup completes.
   useEffect(() => {
     const s = stateRef.current;
     if (!s) return;
@@ -420,7 +438,7 @@ export default function BattleMap({ navigate }) {
       if (r.halo) r.halo.visible = v;
       if (r.ring) r.ring.visible = v;
     }
-  }, [visibleAccounts]);
+  }, [visibleAccounts, sceneReady]);
 
   // Rotate to selected account (clicked from sidebar list) — reuse lerp
   function focusAccount(a) {
