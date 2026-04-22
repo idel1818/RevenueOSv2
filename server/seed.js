@@ -199,9 +199,78 @@ const US_ENTERPRISE = [
     'Palantir\'s FDE model is brilliant — Devin is what multiplies every FDE by 3x.']
 ];
 
-const ALL = [
-  ...ENTERTAINMENT, ...FINANCIAL_SERVICES, ...DACH, ...ISRAELI, ...US_ENTERPRISE
+const DEPLOYED = [
+  ['Nubank', 'Financial Services', 'LATAM', 2400, 10, 1400000,
+    'Massive ETL migration across legacy data pipelines feeding a multi-country fintech platform.',
+    'Parallel Devins already deployed — shipping 12x ETL throughput vs prior human+contractor mix.',
+    'Nubank is live on Devin today — 12x ETL efficiency on the data platform migration.'],
+  ['Infosys', 'IT Services', 'India', 40000, 9, 1800000,
+    'Customer modernisation delivery (Java/COBOL migrations, BSS/OSS, core banking) across hundreds of enterprise clients.',
+    'Devin deployed as Infosys delivery multiplier — agent fleet on client migration programmes.',
+    'Infosys is running Devin across delivery — margin + velocity lever on every modernisation SOW.'],
+  ['JetBrains', 'Developer Tools', 'DACH', 2000, 8, 600000,
+    'IntelliJ platform + JetBrains AI assistant modernisation; internal IDE tooling complexity.',
+    'IDE platform test coverage + plugin API migrations shipped in parallel by Devin.',
+    'JetBrains has the biggest internal IDE codebase on Earth — Devin is how the next decade of platform work ships.']
 ];
+
+const ALL = [
+  ...ENTERTAINMENT, ...FINANCIAL_SERVICES, ...DACH, ...ISRAELI, ...US_ENTERPRISE, ...DEPLOYED
+];
+
+// Battle Map: lat/lng per account + which accounts are marked Deployed (live customer).
+const COORDS = {
+  'Goldman Sachs':      [40.71, -74.01],
+  'Netflix':            [37.56, -122.05],
+  'Disney':             [34.15, -118.33],
+  'Spotify':            [59.33, 18.07],
+  'Warner Bros Discovery': [40.71, -74.01],
+  'Barclays':           [51.51, -0.13],
+  'HSBC':               [51.51, -0.13],
+  'Lloyds Banking Group': [51.51, -0.13],
+  'Standard Chartered': [51.51, -0.13],
+  'NatWest':            [51.51, -0.13],
+  'Deutsche Bank':      [50.11, 8.68],
+  'SAP':                [49.29, 8.64],
+  'Siemens':            [48.14, 11.58],
+  'Deutsche Telekom':   [50.68, 7.15],
+  'BMW Group':          [48.18, 11.56],
+  'Mercedes-Benz':      [48.78, 9.18],
+  'Bosch':              [48.78, 9.18],
+  'Volkswagen':         [52.42, 10.79],
+  'Allianz':            [48.14, 11.58],
+  'Munich Re':          [48.14, 11.58],
+  'Check Point':        [32.09, 34.78],
+  'Wix':                [32.09, 34.78],
+  'Monday.com':         [32.09, 34.78],
+  'Amdocs':             [32.09, 34.78],
+  'CyberArk':           [32.09, 34.78],
+  'Mobileye':           [31.77, 35.21],
+  'Microsoft':          [47.67, -122.12],
+  'Salesforce':         [37.77, -122.42],
+  'Adobe':              [37.33, -121.89],
+  'Uber':               [37.77, -122.42],
+  'Airbnb':             [37.77, -122.42],
+  'Stripe':             [37.77, -122.42],
+  'Coinbase':           [37.77, -122.42],
+  'Palantir':           [39.74, -104.99],
+  'DAZN':               [51.51, -0.13],
+  'Sky':                [51.51, -0.13],
+  'BBC':                [51.51, -0.13],
+  'ITV':                [51.51, -0.13],
+  'Paramount+':         [40.71, -74.01],
+  'Peacock/NBCU':       [40.71, -74.01],
+  'Lionsgate':          [34.05, -118.24],
+  'Sony Pictures':      [34.02, -118.40],
+  'Universal Music Group': [34.05, -118.24],
+  'Live Nation':        [34.05, -118.24],
+  'Electronic Arts':    [37.56, -122.05],
+  'Take-Two Interactive': [40.71, -74.01],
+  'Nubank':             [-23.55, -46.63],
+  'Infosys':            [12.97, 77.59],
+  'JetBrains':          [50.08, 14.44],
+};
+const DEPLOYED_NAMES = new Set(['Goldman Sachs', 'Nubank', 'Infosys']);
 
 const COMPETITORS = [
   {
@@ -375,19 +444,43 @@ const TOP_CONTACTS = [
 function seed() {
   const count = db.prepare('SELECT COUNT(*) as c FROM accounts').get().c;
   let insertedAccounts = 0;
+  const insert = db.prepare(`
+    INSERT INTO accounts (name, industry, territory, eng_headcount, icp_score, deal_value, pain_point, devin_use_case, opening_line)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
   if (count === 0) {
-    const insert = db.prepare(`
-      INSERT INTO accounts (name, industry, territory, eng_headcount, icp_score, deal_value, pain_point, devin_use_case, opening_line)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
     const tx = db.transaction(() => {
       for (const row of ALL) insert.run(...row);
     });
     tx();
     insertedAccounts = ALL.length;
   } else {
-    console.log(`[seed] ${count} accounts already present — keeping existing data.`);
+    // Backfill any accounts added after initial seed (e.g. Deployed customers)
+    // without overwriting existing rows.
+    const findByName = db.prepare('SELECT id FROM accounts WHERE name = ?');
+    const backfillTx = db.transaction(() => {
+      for (const row of ALL) {
+        if (!findByName.get(row[0])) {
+          insert.run(...row);
+          insertedAccounts += 1;
+        }
+      }
+    });
+    backfillTx();
   }
+
+  // Battle Map: sync lat/lng for every account and the deployed flag for live customers.
+  const setCoords = db.prepare('UPDATE accounts SET lat = ?, lng = ? WHERE name = ?');
+  const setDeployed = db.prepare('UPDATE accounts SET deployed = ? WHERE name = ?');
+  const mapTx = db.transaction(() => {
+    for (const [name, [lat, lng]] of Object.entries(COORDS)) {
+      setCoords.run(lat, lng, name);
+    }
+    for (const name of DEPLOYED_NAMES) {
+      setDeployed.run(1, name);
+    }
+  });
+  mapTx();
 
   // Competitors: upsert so the Competition card data stays in sync with the
   // latest valuation / ARR / battlecard content on every server restart.

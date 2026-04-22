@@ -106,7 +106,10 @@ function AccountSignals() {
                 <span className="pill bg-electric/15 text-electric">{h.account_name}</span>
                 <div className="flex-1">
                   <a href={h.url} target="_blank" rel="noopener noreferrer" className="line-clamp-2 text-sm text-slate-200 hover:text-electric">{h.title}</a>
-                  <div className="mt-0.5 font-mono text-[11px] text-slate-500">{h.source} · {timeAgo(h.created_at)} · {h.points || 0} pts</div>
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <span className="source-pill source-pill-accent">{h.source || 'HN'}</span>
+                    <span>· {timeAgo(h.created_at)} · {h.points || 0} pts</span>
+                  </div>
                 </div>
               </div>
             </li>
@@ -155,7 +158,10 @@ function MARadar() {
                   </div>
                   <a href={a.url} target="_blank" rel="noopener noreferrer" className="mt-1.5 block text-sm text-slate-100 hover:text-electric">{a.title}</a>
                   {a.description ? <div className="mt-1 line-clamp-2 text-xs text-slate-400">{a.description}</div> : null}
-                  <div className="mt-1 font-mono text-[11px] text-slate-500">{a.source} · {timeAgo(a.created_at)}</div>
+                  <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <span className="source-pill">{a.source || 'NewsAPI'}</span>
+                    <span>· {timeAgo(a.created_at)}</span>
+                  </div>
                 </div>
               ))}
           </div>
@@ -268,7 +274,10 @@ function TerminalFeed({ results, loading, title }) {
                   <span className="mt-0.5 w-20 shrink-0 text-slate-500">{new Date(h.created_at).toISOString().slice(11, 19)}Z</span>
                   <div className="flex-1">
                     <a href={h.url} target="_blank" rel="noopener noreferrer" className="text-slate-100 hover:text-electric">{h.title}</a>
-                    <div className="mt-0.5 text-[11px] text-slate-500">{h.source} · {h.points || 0} pts · {h.num_comments || 0} comments · {timeAgo(h.created_at)}</div>
+                    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                      <span className="source-pill source-pill-accent">{h.source || 'HN'}</span>
+                      <span>· {h.points || 0} pts · {h.num_comments || 0} comments · {timeAgo(h.created_at)}</span>
+                    </div>
                   </div>
                 </li>
               ))}

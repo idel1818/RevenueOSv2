@@ -100,11 +100,14 @@ function CompetitorCard({ c, news, open, onToggle, onOpen, onUpdate }) {
       ) : null}
 
       <div className="mt-3 border-t border-navy-600 pt-3">
-        <div className="text-[10px] uppercase tracking-wider text-slate-500">Recent HN</div>
-        {!news ? <Skeleton className="mt-1 h-8 w-full" /> : !news.hits?.length ? (
-          <div className="mt-1 text-xs text-slate-500">No recent activity.</div>
+        <div className="flex items-center gap-1.5">
+          <span className="source-pill source-pill-accent">Hacker News</span>
+          <span className="text-[10px] uppercase tracking-wider text-slate-500">· 48h</span>
+        </div>
+        {!news ? <Skeleton className="mt-2 h-8 w-full" /> : !news.hits?.length ? (
+          <div className="mt-2 text-xs text-slate-500">No recent activity.</div>
         ) : (
-          <ul className="mt-1 space-y-1">
+          <ul className="mt-2 space-y-1">
             {news.hits.slice(0, 3).map((h) => (
               <li key={h.id}>
                 <a href={h.url} target="_blank" rel="noopener noreferrer" className="line-clamp-1 text-xs text-slate-300 hover:text-electric">{h.title}</a>
@@ -291,7 +294,10 @@ function CompetitorFeed({ news }) {
                 <span className="pill bg-electric/15 text-electric">{h.name}</span>
                 <div className="flex-1">
                   <a href={h.url} target="_blank" rel="noopener noreferrer" className="text-sm text-slate-200 hover:text-electric">{h.title}</a>
-                  <div className="font-mono text-[11px] text-slate-500">{timeAgo(h.created_at)}</div>
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <span className="source-pill source-pill-accent">Hacker News</span>
+                    <span>· {timeAgo(h.created_at)}</span>
+                  </div>
                 </div>
               </div>
             </li>
