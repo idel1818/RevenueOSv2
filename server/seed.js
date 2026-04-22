@@ -482,21 +482,16 @@ function seed() {
   });
   mapTx();
 
-  // Competitors: upsert so the Competition card data stays in sync with the
-  // latest valuation / ARR / battlecard content on every server restart.
-  const compUpsert = db.prepare(`
-    INSERT INTO competitors (name, valuation, arr, differentiator, vs_devin_status, battlecard_json)
+  // Competitors: insert only when missing, so user edits made via the
+  // BattlecardModal (PATCH /competitors/:id) are NEVER overwritten on restart.
+  // To refresh seeded content, delete the row and let it be re-inserted.
+  const compInsert = db.prepare(`
+    INSERT OR IGNORE INTO competitors (name, valuation, arr, differentiator, vs_devin_status, battlecard_json)
     VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(name) DO UPDATE SET
-      valuation = excluded.valuation,
-      arr = excluded.arr,
-      differentiator = excluded.differentiator,
-      vs_devin_status = excluded.vs_devin_status,
-      battlecard_json = excluded.battlecard_json
   `);
   const compTx = db.transaction(() => {
     for (const c of COMPETITORS) {
-      compUpsert.run(c.name, c.valuation, c.arr, c.differentiator, c.vs_devin_status, c.battlecard_json);
+      compInsert.run(c.name, c.valuation, c.arr, c.differentiator, c.vs_devin_status, c.battlecard_json);
     }
   });
   compTx();
@@ -522,7 +517,7 @@ function seed() {
   });
   contactTx();
 
-  console.log(`[seed] accounts: +${insertedAccounts} (total ${db.prepare('SELECT COUNT(*) as c FROM accounts').get().c}) · competitors upserted: ${COMPETITORS.length} · contacts seeded: ${insertedContacts}`);
+  console.log(`[seed] accounts: +${insertedAccounts} (total ${db.prepare('SELECT COUNT(*) as c FROM accounts').get().c}) · competitors seeded if missing: ${COMPETITORS.length} · contacts seeded: ${insertedContacts}`);
 }
 
 seed();
