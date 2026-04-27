@@ -4,16 +4,31 @@ import { Activity, Briefcase, Building2, DollarSign, ExternalLink, Globe2, Messa
 import { api } from '../lib/api.js';
 import { ACTIVITY_COLORS, formatMoney, formatNum, formatPct, STAGES, timeAgo } from '../lib/format.js';
 import { Empty, ErrorBlock, Section, Skeleton } from '../components/ui.jsx';
+import { UpcomingEventsSection } from './Events.jsx';
 
-function MetricCard({ icon: Icon, label, value, sub }) {
+const METRIC_ACCENTS = {
+  accounts: { bg: 'bg-blue-500/15',    fg: 'text-blue-300',    border: 'border-blue-500/30' },
+  pipeline: { bg: 'bg-emerald-500/15', fg: 'text-emerald-300', border: 'border-emerald-500/30' },
+  reach:    { bg: 'bg-amber-500/15',   fg: 'text-amber-300',   border: 'border-amber-500/30' },
+  response: { bg: 'bg-purple-500/15',  fg: 'text-purple-300',  border: 'border-purple-500/30' },
+  meetings: { bg: 'bg-cyan-500/15',    fg: 'text-cyan-300',    border: 'border-cyan-500/30' },
+  territory:{ bg: 'bg-pink-500/15',    fg: 'text-pink-300',    border: 'border-pink-500/30' }
+};
+
+function MetricCard({ icon: Icon, label, value, sub, accent = 'accounts' }) {
+  const a = METRIC_ACCENTS[accent] || METRIC_ACCENTS.accounts;
   return (
     <div className="card p-4">
-      <div className="flex items-start justify-between">
-        <div className="text-xs font-medium uppercase tracking-wider text-slate-400">{label}</div>
-        <Icon size={16} className="text-electric" />
+      <div className="flex items-start gap-3">
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${a.border} ${a.bg} ${a.fg}`}>
+          <Icon size={16} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">{label}</div>
+          <div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+          {sub ? <div className="mt-1 text-[11px] text-slate-400">{sub}</div> : null}
+        </div>
       </div>
-      <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
-      {sub ? <div className="mt-1 text-[11px] text-slate-400">{sub}</div> : null}
     </div>
   );
 }
@@ -51,8 +66,11 @@ export default function Command({ navigate }) {
     <div className="space-y-6">
       <div>
         <div className="section-title">Command</div>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">Operational Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-400">How the GTM operation is running — in 10 seconds.</p>
+        <h1 className="mt-1 text-4xl font-semibold tracking-tight md:text-5xl">
+          <span className="text-white">Cognition</span>{' '}
+          <span style={{ color: '#3b82f6' }}>Revenue OS</span>
+        </h1>
+        <p className="mt-2 text-sm text-slate-400">How the GTM operation is running — in 10 seconds.</p>
       </div>
 
       <ErrorBlock error={error} />
@@ -62,15 +80,19 @@ export default function Command({ navigate }) {
           [...Array(6)].map((_, i) => <div key={i} className="card p-4"><Skeleton className="h-5 w-24" /><Skeleton className="mt-3 h-7 w-16" /></div>)
         ) : (
           <>
-            <MetricCard icon={Building2} label="Total Accounts" value={formatNum(stats.totalAccounts)} sub={`Ent ${stats.enterprise} · Mid ${stats.midMarket} · SMB ${stats.smb}`} />
-            <MetricCard icon={DollarSign} label="Pipeline Value" value={formatMoney(stats.pipelineValue)} sub="Est. across active accounts" />
-            <MetricCard icon={MessageSquare} label="Reach Outs · Week" value={formatNum(stats.reachWeek)} sub={`Total: ${stats.totalReachOuts}`} />
-            <MetricCard icon={TrendingUp} label="Response Rate" value={formatPct(stats.responseRate)} sub={stats.totalReachOuts ? `${Math.round(stats.responseRate * stats.totalReachOuts)} / ${stats.totalReachOuts}` : '—'} />
-            <MetricCard icon={Briefcase} label="Meetings · Month" value={formatNum(stats.meetingsMonth)} sub="Booked this month" />
+            <MetricCard accent="accounts" icon={Building2} label="Total Accounts" value={formatNum(stats.totalAccounts)} sub={`Ent ${stats.enterprise} · Mid ${stats.midMarket} · SMB ${stats.smb}`} />
+            <MetricCard accent="pipeline" icon={DollarSign} label="Pipeline Value" value={formatMoney(stats.pipelineValue)} sub="Est. across active accounts" />
+            <MetricCard accent="reach" icon={MessageSquare} label="Reach Outs · Week" value={formatNum(stats.reachWeek)} sub={`Total: ${stats.totalReachOuts}`} />
+            <MetricCard accent="response" icon={TrendingUp} label="Response Rate" value={formatPct(stats.responseRate)} sub={stats.totalReachOuts ? `${Math.round(stats.responseRate * stats.totalReachOuts)} / ${stats.totalReachOuts}` : '—'} />
+            <MetricCard accent="meetings" icon={Briefcase} label="Meetings · Month" value={formatNum(stats.meetingsMonth)} sub="Booked this month" />
             <div className="card p-4">
-              <div className="flex items-start justify-between">
-                <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Territories</div>
-                <Globe2 size={16} className="text-electric" />
+              <div className="flex items-start gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-pink-500/30 bg-pink-500/15 text-pink-300">
+                  <Globe2 size={16} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Territories</div>
+                </div>
               </div>
               <div className="mt-2 h-16">
                 <ResponsiveContainer>
@@ -112,6 +134,8 @@ export default function Command({ navigate }) {
         )}
       </Section>
 
+      <UpcomingEventsSection navigate={navigate} />
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title="Live Activity Feed" right={<span className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500"><span className="live-dot h-1.5 w-1.5 rounded-full bg-green-500" /> AUTO-REFRESH 60s</span>}>
           {!activities.length ? (
@@ -137,7 +161,14 @@ export default function Command({ navigate }) {
 
         <Section
           title="Live Triggers · target accounts in the news"
-          right={<span className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500"><span className="live-dot h-1.5 w-1.5 rounded-full bg-green-500" /> HACKER NEWS · 5m</span>}
+          right={
+            <span className="flex items-center gap-2 text-[10px] font-mono text-slate-500">
+              {triggers?.refreshed_at ? <span>Last refreshed {timeAgo(triggers.refreshed_at)}</span> : null}
+              <span className="flex items-center gap-1.5">
+                <span className="live-dot h-1.5 w-1.5 rounded-full bg-green-500" /> HACKER NEWS · 5m
+              </span>
+            </span>
+          }
         >
           {!triggers ? (
             <Skeleton className="h-32" />

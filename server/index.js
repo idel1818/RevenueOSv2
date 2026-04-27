@@ -15,6 +15,7 @@ import competitorsRouter from './routes/competitors.js';
 import statsRouter from './routes/stats.js';
 import aiRouter from './routes/ai.js';
 import newsRouter from './routes/news.js';
+import conferencesRouter from './routes/conferences.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -43,6 +44,7 @@ app.use('/api/competitors', competitorsRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/news', newsRouter);
+app.use('/api/conferences', conferencesRouter);
 
 // Serve built client in production
 const distPath = resolve(ROOT, 'dist');
