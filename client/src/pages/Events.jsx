@@ -642,7 +642,8 @@ function ConferenceDetail({ id, onClose, onChanged }) {
     try {
       await api.put(`/conferences/${id}/speakers/${speaker.id}`, {
         is_competitor: 1,
-        company_type: speaker.company_type || 'competitor'
+        is_target_account: 0,
+        company_type: 'competitor'
       });
       await load();
       onChanged?.();
