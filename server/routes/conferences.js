@@ -137,22 +137,22 @@ router.delete('/:id/speakers/:speakerId', (req, res) => {
 });
 
 router.post('/:id/discover-speakers', async (req, res) => {
-  const conf = db.prepare('SELECT * FROM conferences WHERE id = ?').get(req.params.id);
-  if (!conf) return res.status(404).json({ error: 'Conference not found' });
-
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    return res.json({
-      suggestions: curatedSuggestions(conf),
-      source: 'curated',
-      note: 'Curated fallback (set ANTHROPIC_API_KEY for live AI discovery).',
-    });
-  }
-
-  const year = (conf.dates || '').slice(0, 4) || new Date().getFullYear();
-  const prompt = `List 5 likely speakers at ${conf.name} in ${year} based on the conference topic ${conf.vertical || 'tech'}. For each: name, title, company, likely session topic. Flag if any work at: Cursor, GitHub, OpenAI, Google DeepMind, Anthropic, Factory, Augment Code, Replit. Format as JSON array with fields: name, title, company, topic, is_competitor (0 or 1). Output only the JSON array, no commentary.`;
-
   try {
+    const conf = db.prepare('SELECT * FROM conferences WHERE id = ?').get(req.params.id);
+    if (!conf) return res.status(404).json({ error: 'Conference not found' });
+
+    const key = process.env.ANTHROPIC_API_KEY;
+    if (!key) {
+      return res.json({
+        suggestions: curatedSuggestions(conf),
+        source: 'curated',
+        note: 'Curated fallback (set ANTHROPIC_API_KEY for live AI discovery).',
+      });
+    }
+
+    const year = (conf.dates || '').slice(0, 4) || new Date().getFullYear();
+    const prompt = `List 5 likely speakers at ${conf.name} in ${year} based on the conference topic ${conf.vertical || 'tech'}. For each: name, title, company, likely session topic. Flag if any work at: Cursor, GitHub, OpenAI, Google DeepMind, Anthropic, Factory, Augment Code, Replit. Format as JSON array with fields: name, title, company, topic, is_competitor (0 or 1). Output only the JSON array, no commentary.`;
+
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {

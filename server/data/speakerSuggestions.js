@@ -5,7 +5,9 @@
 // Anthropic, Factory, Augment Code, Replit.
 const COMPETITOR_COMPANIES = new Set([
   'Cursor', 'GitHub', 'OpenAI', 'Google DeepMind', 'Anthropic',
-  'Factory', 'Augment Code', 'Replit'
+  'Factory', 'Augment Code', 'Replit',
+  'Google', 'Google Cloud', 'Google Labs',
+  'Microsoft', 'Microsoft AI'
 ]);
 
 const BY_NAME = {
