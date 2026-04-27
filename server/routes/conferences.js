@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db.js';
+import { curatedSuggestions } from '../data/speakerSuggestions.js';
 
 const router = Router();
 
@@ -140,7 +141,13 @@ router.post('/:id/discover-speakers', async (req, res) => {
   if (!conf) return res.status(404).json({ error: 'Conference not found' });
 
   const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not set' });
+  if (!key) {
+    return res.json({
+      suggestions: curatedSuggestions(conf),
+      source: 'curated',
+      note: 'Curated fallback (set ANTHROPIC_API_KEY for live AI discovery).',
+    });
+  }
 
   const year = (conf.dates || '').slice(0, 4) || new Date().getFullYear();
   const prompt = `List 5 likely speakers at ${conf.name} in ${year} based on the conference topic ${conf.vertical || 'tech'}. For each: name, title, company, likely session topic. Flag if any work at: Cursor, GitHub, OpenAI, Google DeepMind, Anthropic, Factory, Augment Code, Replit. Format as JSON array with fields: name, title, company, topic, is_competitor (0 or 1). Output only the JSON array, no commentary.`;
@@ -170,7 +177,7 @@ router.post('/:id/discover-speakers', async (req, res) => {
     if (match) {
       try { parsed = JSON.parse(match[0]); } catch { parsed = []; }
     }
-    res.json({ suggestions: parsed, raw, model: MODEL });
+    res.json({ suggestions: parsed, raw, model: MODEL, source: 'ai' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

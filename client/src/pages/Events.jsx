@@ -566,6 +566,7 @@ function ConferenceDetail({ id, onClose, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [discoveryBusy, setDiscoveryBusy] = useState(false);
   const [suggestions, setSuggestions] = useState(null);
+  const [suggestionSource, setSuggestionSource] = useState(null);
   const [discoveryError, setDiscoveryError] = useState(null);
   const [notes, setNotes] = useState('');
 
@@ -606,6 +607,7 @@ function ConferenceDetail({ id, onClose, onChanged }) {
     try {
       const r = await api.post(`/conferences/${id}/discover-speakers`, {});
       setSuggestions(r.suggestions || []);
+      setSuggestionSource(r.source || 'ai');
     } catch (e) {
       setDiscoveryError(e);
     }
@@ -697,7 +699,9 @@ function ConferenceDetail({ id, onClose, onChanged }) {
 
             {suggestions?.length ? (
               <div className="mb-4 rounded-lg border border-violet-900/50 bg-violet-900/20 p-3">
-                <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-violet-300">AI suggestions · click to add</div>
+                <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-violet-300">
+                  {suggestionSource === 'curated' ? 'Curated suggestions · click to add' : 'AI suggestions · click to add'}
+                </div>
                 <div className="space-y-2">
                   {suggestions.map((s, i) => (
                     <div key={i} className="flex items-start justify-between gap-2 rounded-md border border-navy-600 bg-navy-800/60 p-2">
@@ -717,7 +721,7 @@ function ConferenceDetail({ id, onClose, onChanged }) {
               </div>
             ) : null}
             {suggestions && !suggestions.length ? (
-              <div className="mb-4 font-mono text-[11px] text-slate-500">All AI-suggested speakers added.</div>
+              <div className="mb-4 font-mono text-[11px] text-slate-500">All suggested speakers added.</div>
             ) : null}
 
             {conf.speakers?.length ? (
