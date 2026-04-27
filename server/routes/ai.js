@@ -5,13 +5,19 @@ const router = Router();
 
 const MODEL = 'claude-sonnet-4-20250514';
 
-async function callClaude(prompt, maxTokens = 800) {
+async function callClaude({ system, user, maxTokens = 800 }) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) {
     const err = new Error('ANTHROPIC_API_KEY not set');
     err.status = 503;
     throw err;
   }
+  const body = {
+    model: MODEL,
+    max_tokens: maxTokens,
+    messages: [{ role: 'user', content: user }]
+  };
+  if (system) body.system = system;
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -19,11 +25,7 @@ async function callClaude(prompt, maxTokens = 800) {
       'x-api-key': key,
       'anthropic-version': '2023-06-01'
     },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }]
-    })
+    body: JSON.stringify(body)
   });
   if (!res.ok) {
     const text = await res.text();
@@ -35,6 +37,25 @@ async function callClaude(prompt, maxTokens = 800) {
   return json.content?.map((c) => c.text).join('\n').trim() || '';
 }
 
+// Extract a "SUBJECT: ..." line (first line of the reply) and strip it
+// from the body. Falls back gracefully if the model omits it.
+function splitSubjectAndBody(raw) {
+  if (!raw) return { subject: '', body: '' };
+  const lines = raw.split('\n');
+  let subject = '';
+  let startIdx = 0;
+  for (let i = 0; i < Math.min(3, lines.length); i++) {
+    const m = lines[i].match(/^\s*SUBJECT\s*:\s*(.+?)\s*$/i);
+    if (m) {
+      subject = m[1].trim().replace(/^["']|["']$/g, '');
+      startIdx = i + 1;
+      break;
+    }
+  }
+  const body = lines.slice(startIdx).join('\n').trim();
+  return { subject, body };
+}
+
 router.post('/compose', async (req, res) => {
   try {
     const { account_id, contact_title } = req.body;
@@ -42,21 +63,17 @@ router.post('/compose', async (req, res) => {
     const acct = db.prepare('SELECT * FROM accounts WHERE id = ?').get(account_id);
     if (!acct) return res.status(404).json({ error: 'Account not found' });
 
-    const title = contact_title || 'senior engineering leader';
-    const prompt = `You are writing a cold outreach message on behalf of Idel Judanin, a senior BD operator at Cognition (makers of Devin AI and Windsurf). Idel's style is direct, warm, credible, and first-person. He never uses generic AI language. He leads with a specific insight about the prospect's engineering situation, connects it to a concrete Devin use case with a real proof point (Nubank 12x, Goldman 3-4x, Linktree parallel repos), and ends with a specific low-friction ask.
+    const title = contact_title || 'VP of Engineering';
 
-Write a cold outreach message for:
-- Company: ${acct.name}
-- Industry: ${acct.industry}
-- Engineering headcount: ${acct.eng_headcount}
-- Contact title: ${title}
-- Primary pain point: ${acct.pain_point}
-- Devin use case: ${acct.devin_use_case}
+    const system = `You are writing cold outreach on behalf of Idel Judanin, senior BD at Cognition — makers of Devin (autonomous AI software engineer) and Windsurf (AI-native IDE). Idel's style: direct, warm, specific, first-person. Never generic. Always leads with a specific insight about the prospect's engineering situation, connects to a concrete Devin use case, includes one real proof point, ends with a low-friction ask. Under 150 words. No subject line.`;
 
-Keep it under 150 words. No subject line needed. Output only the message body.`;
+    const user = `Write a cold outreach message for: Company: ${acct.name}. Contact title: ${title}. Primary pain point: ${acct.pain_point}. Devin use case: ${acct.devin_use_case}. Territory: ${acct.territory}. Industry: ${acct.industry}. Engineering headcount: ${acct.eng_headcount}. Available proof points to choose from: Goldman Sachs 3-4x velocity on legacy Java modernisation. Nubank 12x throughput on ETL migration. Linktree shipped 6-month migration in 3 weeks with parallel Devins. Spotify engineers haven't written a line of code since December. All deployments run in customer VPC with full audit logs.
 
-    const message = await callClaude(prompt, 600);
-    res.json({ message, model: MODEL });
+Also return a subject line of under 8 words on the first line prefixed with SUBJECT:`;
+
+    const raw = await callClaude({ system, user, maxTokens: 400 });
+    const { subject, body } = splitSubjectAndBody(raw);
+    res.json({ subject, message: body, raw, model: MODEL });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -67,34 +84,16 @@ router.post('/research/:account_id', async (req, res) => {
     const acct = db.prepare('SELECT * FROM accounts WHERE id = ?').get(req.params.account_id);
     if (!acct) return res.status(404).json({ error: 'Account not found' });
 
-    const prompt = `You are a GTM research analyst for Cognition (makers of Devin AI — an autonomous engineering agent).
+    const user = `You are a GTM research analyst for Cognition (makers of Devin — the autonomous AI software engineer). Produce a ~150-word briefing for a first meeting with a senior engineering leader at ${acct.name}.
 
-Target company: ${acct.name}
-Industry: ${acct.industry}
-Territory: ${acct.territory}
-Engineering headcount (approx): ${acct.eng_headcount}
-Current internal hypothesis on pain: ${acct.pain_point}
+Cover:
+1. Their likely engineering stack (based on public knowledge / reasonable inference for ${acct.industry} in ${acct.territory}).
+2. The most likely Devin use cases for ${acct.name} (migration / security remediation / test coverage / parallel agents — pick the 1-2 that fit best and say why).
+3. A concrete, senior-to-senior conversation opener Idel can use on a first call.
 
-Produce a tight, opinionated briefing for a first meeting with a senior engineering leader at ${acct.name}. Format as clean markdown with these sections:
+Tight, opinionated, no filler, no disclaimers. Use clean markdown with bold section headers.`;
 
-## Where ${acct.name} likely hurts
-Three specific bets on engineering pain — bounded, concrete, and testable in a 30-min call. No generic AI hype.
-
-## Where Devin lands
-Which lane to lead with (migration / security remediation / test coverage / parallel agents) and why, specific to ${acct.name}.
-
-## Proof point to use
-One of: Goldman 3-4x velocity on legacy Java; Nubank 12x throughput; Linktree 6-month migration in 3 weeks; Spotify platform engineering. Pick the most relevant and say why.
-
-## Three questions to ask in the first 5 minutes
-Tight, senior-to-senior questions that qualify in or out fast.
-
-## Red flags to watch
-Things that would kill this deal — political, technical, or commercial.
-
-Be specific. No filler. No disclaimers.`;
-
-    const analysis = await callClaude(prompt, 1200);
+    const analysis = await callClaude({ user, maxTokens: 300 });
     logActivity(acct.id, 'AI Research', `Research brief generated for ${acct.name}`);
     res.json({ analysis, model: MODEL });
   } catch (e) {

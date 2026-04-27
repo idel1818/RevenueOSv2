@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Terminal } from 'lucide-react';
+import { Globe, Terminal } from 'lucide-react';
 import { formatUTC } from '../lib/format.js';
 
 const LINKS = [
@@ -9,6 +9,7 @@ const LINKS = [
   ['intelligence', 'Intelligence'],
   ['events', 'Events'],
   ['competition', 'Competition'],
+  ['battleMap', 'Battle Map', Globe],
   ['salesKit', 'Sales Kit']
 ];
 
@@ -36,16 +37,17 @@ export function TopNav({ current, onNavigate }) {
         </button>
 
         <nav className="flex items-center gap-1">
-          {LINKS.map(([key, label]) => (
+          {LINKS.map(([key, label, Icon]) => (
             <button
               key={key}
               onClick={() => onNavigate(key)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 current === key
                   ? 'bg-electric/15 text-electric'
                   : 'text-slate-300 hover:bg-navy-600 hover:text-white'
               }`}
             >
+              {Icon ? <Icon size={14} /> : null}
               {label}
             </button>
           ))}

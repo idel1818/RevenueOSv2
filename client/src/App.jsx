@@ -5,6 +5,7 @@ import Accounts from './pages/Accounts.jsx';
 import Outreach from './pages/Outreach.jsx';
 import Intelligence from './pages/Intelligence.jsx';
 import Competition from './pages/Competition.jsx';
+import BattleMap from './pages/BattleMap.jsx';
 import SalesKit from './pages/SalesKit.jsx';
 import Events from './pages/Events.jsx';
 
@@ -15,6 +16,7 @@ const SECTIONS = {
   intelligence: { label: 'Intelligence', component: Intelligence },
   events: { label: 'Events', component: Events },
   competition: { label: 'Competition', component: Competition },
+  battleMap: { label: 'Battle Map', component: BattleMap },
   salesKit: { label: 'Sales Kit', component: SalesKit }
 };
 
@@ -45,6 +47,9 @@ export default function App() {
       <main className="mx-auto max-w-[1600px] px-6 py-6">
         <Component param={route.param} navigate={navigate} />
       </main>
+      <footer className="mx-auto max-w-[1600px] px-6 pb-6 pt-2 text-center font-mono text-[10px] uppercase tracking-widest text-slate-500">
+        Directed by Idel · Executed by Devin
+      </footer>
     </div>
   );
 }

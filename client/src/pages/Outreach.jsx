@@ -1,18 +1,33 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Kanban, LayoutList, Plus } from 'lucide-react';
 import { api, qs } from '../lib/api.js';
 import { STATUSES, STATUS_COLORS, formatPct, timeAgo } from '../lib/format.js';
 import { Empty, Skeleton } from '../components/ui.jsx';
 import OutreachComposer from '../components/OutreachComposer.jsx';
 
-export default function Outreach() {
+function parseComposeParam(param) {
+  if (!param) return null;
+  const match = /(?:^|&)compose=(\d+)/.exec(param);
+  return match ? Number(match[1]) : null;
+}
+
+export default function Outreach({ param }) {
+  const composeAccountId = useMemo(() => parseComposeParam(param), [param]);
   const [rows, setRows] = useState(null);
   const [stats, setStats] = useState(null);
   const [filter, setFilter] = useState({ status: '', channel: '', territory: '', industry: '', search: '' });
   const [view, setView] = useState('table');
   const [show, setShow] = useState(false);
+  const [composeSeed, setComposeSeed] = useState(null);
   const [followups, setFollowups] = useState([]);
   const [tab, setTab] = useState('log');
+
+  useEffect(() => {
+    if (composeAccountId) {
+      setComposeSeed(composeAccountId);
+      setShow(true);
+    }
+  }, [composeAccountId]);
 
   async function load() {
     const [r, s, f] = await Promise.all([
@@ -155,7 +170,12 @@ export default function Outreach() {
         </div>
       )}
 
-      {show ? <OutreachComposer onClose={() => { setShow(false); load(); }} /> : null}
+      {show ? (
+        <OutreachComposer
+          initialAccountId={composeSeed || undefined}
+          onClose={() => { setShow(false); setComposeSeed(null); load(); }}
+        />
+      ) : null}
     </div>
   );
 }

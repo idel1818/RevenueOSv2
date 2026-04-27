@@ -121,6 +121,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_speakers_conference ON conference_speakers(conference_id);
 `);
 
+// Battle Map migrations: lat/lng coordinates + deployed flag. Run idempotently.
+function ensureColumn(table, column, typeSql) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.find((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${typeSql}`);
+  }
+}
+ensureColumn('accounts', 'lat', 'REAL');
+ensureColumn('accounts', 'lng', 'REAL');
+ensureColumn('accounts', 'deployed', 'INTEGER DEFAULT 0');
+
 export function logActivity(accountId, type, description) {
   db.prepare(
     'INSERT INTO activities (account_id, type, description) VALUES (?, ?, ?)'

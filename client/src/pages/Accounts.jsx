@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Download, Plus, Search, X } from 'lucide-react';
+import { Download, Plus, Search, Sparkles, X } from 'lucide-react';
 import { api, qs } from '../lib/api.js';
 import { icpColor, STAGES, STAGE_COLORS, timeAgo } from '../lib/format.js';
 import { Empty, ErrorBlock, Field, Modal, Skeleton } from '../components/ui.jsx';
+import OutreachComposer from '../components/OutreachComposer.jsx';
 import AccountDetail from './AccountDetail.jsx';
 
 const TERRITORIES = ['US', 'UK', 'DACH', 'Israel', 'Eastern Europe'];
@@ -26,6 +27,7 @@ export default function Accounts({ param, navigate }) {
   const [error, setError] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [quickReach, setQuickReach] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [bulkStage, setBulkStage] = useState('Researched');
 
@@ -181,7 +183,16 @@ export default function Accounts({ param, navigate }) {
                   <td className="px-3 py-2.5 text-slate-300">{a.primary_contact || <span className="text-slate-500">—</span>}</td>
                   <td className="px-3 py-2.5 font-mono text-[11px] text-slate-400">{timeAgo(a.last_activity || a.updated_at)}</td>
                   <td className="px-3 py-2.5 text-right">
-                    <button onClick={() => setDetailId(a.id)} className="text-xs text-electric hover:underline">View</button>
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => setQuickReach(a)}
+                        title="Log a reach out to this account"
+                        className="inline-flex items-center gap-1 text-xs text-electric hover:underline"
+                      >
+                        <Sparkles size={12} /> Quick Reach Out
+                      </button>
+                      <button onClick={() => setDetailId(a.id)} className="text-xs text-electric hover:underline">View</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -196,6 +207,10 @@ export default function Accounts({ param, navigate }) {
 
       {showAdd ? (
         <AddAccountModal onClose={() => { setShowAdd(false); load(); }} />
+      ) : null}
+
+      {quickReach ? (
+        <OutreachComposer account={quickReach} onClose={() => { setQuickReach(null); load(); }} />
       ) : null}
     </div>
   );

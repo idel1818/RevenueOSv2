@@ -183,75 +183,143 @@ function SellingPoints() {
   );
 }
 
+// Fixed speedup multipliers per lane, from the benchmark canon:
+//   migration  10x — Nubank
+//   security   20x — Goldman
+//   test        5x — internal proxy
+const SPEEDUPS = { migration: 10, security: 20, test: 5 };
+const LANE_TOOLTIPS = {
+  migration: 'Devin handles migrations 10x faster than human engineers (Nubank benchmark).',
+  security:  'Devin closes CVE + remediation tickets 20x faster than a dedicated human team (Goldman benchmark).',
+  test:      'Devin backfills test coverage 5x faster than engineers on the same repo (internal proxy benchmark).'
+};
+
 function ROICalculator() {
+  const [company, setCompany] = useState('');
   const [engs, setEngs] = useState(1000);
   const [salary, setSalary] = useState(250000);
-  const [migration, setMigration] = useState(50);
-  const [security, setSecurity] = useState(25);
-  const [test, setTest] = useState(25);
-  const [multiplier, setMultiplier] = useState(3);
+  const [lanes, setLanes] = useState({ migration: 40, security: 30, test: 30 });
   const [devinCost, setDevinCost] = useState(2000000);
+  const [copied, setCopied] = useState(false);
 
-  const total = migration + security + test;
+  // When a single slider moves, keep the remaining two lanes proportional to
+  // their current shares so the total always snaps back to 100%.
+  function updateLane(key, raw) {
+    const next = Math.max(0, Math.min(90, Math.round(raw)));
+    const others = Object.keys(lanes).filter((k) => k !== key);
+    const remaining = 100 - next;
+    const curOtherTotal = others.reduce((a, k) => a + lanes[k], 0);
+    let a, b;
+    if (curOtherTotal <= 0) {
+      a = Math.round(remaining / 2);
+      b = remaining - a;
+    } else {
+      a = Math.round((lanes[others[0]] / curOtherTotal) * remaining);
+      b = remaining - a;
+    }
+    setLanes({ [key]: next, [others[0]]: a, [others[1]]: b });
+  }
+
+  const total = lanes.migration + lanes.security + lanes.test;
   const valid = total === 100;
 
   const baseCost = engs * salary;
-  const affectedCost = baseCost * (total / 100);
-  const grossSavings = affectedCost * (1 - 1 / multiplier);
+  // Amdahl-style: savings share per lane = lane share × (1 − 1/speedup).
+  const laneContribution = {
+    migration: (lanes.migration / 100) * (1 - 1 / SPEEDUPS.migration),
+    security:  (lanes.security  / 100) * (1 - 1 / SPEEDUPS.security),
+    test:      (lanes.test      / 100) * (1 - 1 / SPEEDUPS.test)
+  };
+  const totalReduction = laneContribution.migration + laneContribution.security + laneContribution.test;
+  const grossSavings = baseCost * totalReduction;
   const net = grossSavings - devinCost;
-  const payback = devinCost / (grossSavings / 12 || 1);
+  const payback = grossSavings > 0 ? devinCost / (grossSavings / 12) : Infinity;
+  const hoursSaved = Math.round(engs * 2080 * totalReduction);
+  const millions = (n) => `$${(n / 1_000_000).toFixed(1)}M`;
+
+  function onSendModel() {
+    const date = new Date().toISOString().slice(0, 10);
+    const co = company.trim() || '[Company]';
+    const summary =
+      `Devin ROI Model — ${co} ${date}\n` +
+      `Team: ${engs.toLocaleString()} engineers\n` +
+      `Fully loaded: $${salary.toLocaleString()}\n` +
+      `Maintenance split: ${lanes.migration}% migration, ${lanes.security}% security, ${lanes.test}% tests\n` +
+      `Gross savings: ${millions(grossSavings)}/yr\n` +
+      `Net after Devin: ${millions(net)}/yr\n` +
+      `Payback: ${Number.isFinite(payback) ? payback.toFixed(1) : '—'} months`;
+    navigator.clipboard.writeText(summary).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div className="card space-y-3 p-4">
-        <div className="section-title">Inputs</div>
-        <label className="block">
-          <div className="text-xs text-slate-400">Engineering headcount</div>
-          <input type="number" className="input" value={engs} onChange={(e) => setEngs(Number(e.target.value))} />
-        </label>
-        <label className="block">
-          <div className="text-xs text-slate-400">Fully loaded salary ($)</div>
-          <input type="number" className="input" value={salary} onChange={(e) => setSalary(Number(e.target.value))} />
-        </label>
-        <label className="block">
-          <div className="text-xs text-slate-400">Velocity multiplier (Devin vs. baseline)</div>
-          <input type="range" min="2" max="12" step="0.5" value={multiplier} onChange={(e) => setMultiplier(Number(e.target.value))} className="w-full" />
-          <div className="font-mono text-sm text-white">{multiplier}x</div>
-        </label>
-        <div>
-          <div className="text-xs text-slate-400 mb-1">Lane mix (must sum to 100%)</div>
-          <LaneSlider label="Migration" value={migration} onChange={setMigration} />
-          <LaneSlider label="Security Remediation" value={security} onChange={setSecurity} />
-          <LaneSlider label="Test Coverage" value={test} onChange={setTest} />
-          <div className={`mt-1 text-xs ${valid ? 'text-emerald-300' : 'text-red-300'}`}>Total: {total}%</div>
-        </div>
-        <label className="block">
-          <div className="text-xs text-slate-400">Devin annual cost ($)</div>
-          <input type="number" className="input" value={devinCost} onChange={(e) => setDevinCost(Number(e.target.value))} />
-        </label>
-      </div>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="card space-y-3 p-4">
+          <div className="section-title">Inputs</div>
+          <label className="block">
+            <div className="text-xs text-slate-400">Company (for the shareable summary)</div>
+            <input type="text" className="input" placeholder="e.g. Goldman Sachs" value={company} onChange={(e) => setCompany(e.target.value)} />
+          </label>
+          <label className="block">
+            <div className="text-xs text-slate-400">Engineering headcount</div>
+            <input type="number" className="input" value={engs} onChange={(e) => setEngs(Number(e.target.value))} />
+          </label>
+          <label className="block">
+            <div className="text-xs text-slate-400">Fully loaded salary ($)</div>
+            <input type="number" className="input" value={salary} onChange={(e) => setSalary(Number(e.target.value))} />
+          </label>
 
-      <div className="card space-y-3 p-4">
-        <div className="section-title flex items-center justify-between">
-          <span>Outputs</span>
-          <Calculator size={16} className="text-electric" />
+          <div>
+            <div className="mb-1 text-xs uppercase tracking-wider text-slate-400">Maintenance split · always 100%</div>
+            <LaneSlider label="Migration work" value={lanes.migration} speedup={SPEEDUPS.migration} tooltip={LANE_TOOLTIPS.migration} onChange={(v) => updateLane('migration', v)} />
+            <LaneSlider label="Security remediation" value={lanes.security} speedup={SPEEDUPS.security} tooltip={LANE_TOOLTIPS.security} onChange={(v) => updateLane('security', v)} />
+            <LaneSlider label="Test coverage" value={lanes.test} speedup={SPEEDUPS.test} tooltip={LANE_TOOLTIPS.test} onChange={(v) => updateLane('test', v)} />
+            <div className={`mt-2 text-xs font-mono ${valid ? 'text-emerald-300' : 'text-red-300'}`}>Total: {total}%</div>
+          </div>
+
+          <label className="block">
+            <div className="text-xs text-slate-400">Devin annual cost ($)</div>
+            <input type="number" className="input" value={devinCost} onChange={(e) => setDevinCost(Number(e.target.value))} />
+          </label>
         </div>
-        <OutputRow label="Addressable eng cost" value={formatMoney(affectedCost)} />
-        <OutputRow label="Gross cost avoided" value={formatMoney(grossSavings)} />
-        <OutputRow label="Net ROI (after Devin)" value={formatMoney(net)} accent={net >= 0 ? 'emerald' : 'red'} />
-        <OutputRow label="Payback period" value={`${payback.toFixed(1)} months`} />
-        <OutputRow label="Hours saved per year" value={`${Math.round((affectedCost / salary) * 2080 * (1 - 1 / multiplier)).toLocaleString()} hrs`} />
-        <button onClick={() => navigator.clipboard.writeText(`Cognition ROI Model\nEng HC: ${engs}\nSalary: ${formatMoney(salary)}\nVelocity: ${multiplier}x\nLane mix: Migration ${migration}% / Security ${security}% / Test ${test}%\nDevin cost: ${formatMoney(devinCost)}\nGross savings: ${formatMoney(grossSavings)}\nNet ROI: ${formatMoney(net)}\nPayback: ${payback.toFixed(1)} months`)} className="btn-primary w-full justify-center text-sm"><Copy size={14} /> Send this model</button>
+
+        <div className="card space-y-3 p-4">
+          <div className="section-title flex items-center justify-between">
+            <span>Outputs</span>
+            <Calculator size={16} className="text-electric" />
+          </div>
+          <OutputRow label="Addressable eng cost" value={formatMoney(baseCost)} />
+          <OutputRow label="Gross cost avoided" value={formatMoney(grossSavings)} />
+          <OutputRow label="Net ROI (after Devin)" value={formatMoney(net)} accent={net >= 0 ? 'emerald' : 'red'} />
+          <OutputRow label="Payback period" value={Number.isFinite(payback) ? `${payback.toFixed(1)} months` : '—'} />
+          <OutputRow label="Hours saved per year" value={`${hoursSaved.toLocaleString()} hrs`} />
+          <p className="pt-1 text-[11px] leading-relaxed text-slate-400">
+            Model uses Amdahl-style reduction: each lane's contribution = share × (1 − 1/speedup). Benchmarks: migrations 10× (Nubank), security 20× (Goldman), test coverage 5× (proxy).
+          </p>
+          <button onClick={onSendModel} className="btn-primary w-full justify-center text-sm">
+            <Copy size={14} /> {copied ? 'Copied to clipboard' : 'Send this model'}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function LaneSlider({ label, value, onChange }) {
+function LaneSlider({ label, value, speedup, tooltip, onChange }) {
   return (
     <div className="mt-2">
-      <div className="flex justify-between text-[11px] text-slate-400"><span>{label}</span><span>{value}%</span></div>
-      <input type="range" min="0" max="100" value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full" />
+      <div className="flex items-center justify-between text-[11px] text-slate-300">
+        <span className="inline-flex items-center gap-1">
+          <span>{label}</span>
+          <span title={tooltip} className="cursor-help rounded-full border border-slate-500 px-1 font-mono text-[9px] leading-none text-slate-400">?</span>
+          <span className="font-mono text-slate-500">· {speedup}× speedup</span>
+        </span>
+        <span className="font-mono text-white">{value}%</span>
+      </div>
+      <input type="range" min="0" max="90" value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-electric" />
     </div>
   );
 }
