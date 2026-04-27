@@ -4,6 +4,7 @@ import { Activity, Briefcase, Building2, DollarSign, ExternalLink, Globe2, Messa
 import { api } from '../lib/api.js';
 import { ACTIVITY_COLORS, formatMoney, formatNum, formatPct, STAGES, timeAgo } from '../lib/format.js';
 import { Empty, ErrorBlock, Section, Skeleton } from '../components/ui.jsx';
+import { UpcomingEventsSection } from './Events.jsx';
 
 function MetricCard({ icon: Icon, label, value, sub }) {
   return (
@@ -111,6 +112,8 @@ export default function Command({ navigate }) {
           </div>
         )}
       </Section>
+
+      <UpcomingEventsSection navigate={navigate} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title="Live Activity Feed" right={<span className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500"><span className="live-dot h-1.5 w-1.5 rounded-full bg-green-500" /> AUTO-REFRESH 60s</span>}>

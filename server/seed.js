@@ -323,37 +323,259 @@ const COMPETITORS = [
   }
 ];
 
-function seed() {
-  const count = db.prepare('SELECT COUNT(*) as c FROM accounts').get().c;
+const CONFERENCES = [
+  {
+    name: 'Google I/O 2026',
+    dates: '2026-05-14',
+    location: 'Shoreline Amphitheatre, Mountain View CA',
+    city: 'Mountain View',
+    country: 'US',
+    vertical: 'Developer Tools / AI',
+    attendees: 7000,
+    website: 'io.google',
+    relevance_score: 8,
+    description: "Google's annual developer conference. Gemini Code Assist and Jules (Google DeepMind coding agent) announcements expected. Monitor for competitive intelligence on Google's AI developer tools strategy.",
+    speakers: [
+      { name: 'Sundar Pichai', title: 'CEO', company: 'Google', company_type: 'competitor_adjacent', topic: 'AI and the future of development', is_competitor: 1, is_target_account: 0 },
+      { name: 'Jeff Dean', title: 'Chief Scientist', company: 'Google DeepMind', company_type: 'competitor', topic: 'Jules — proactive coding agent', is_competitor: 1, is_target_account: 0 }
+    ]
+  },
+  {
+    name: 'Microsoft Build 2026',
+    dates: '2026-05-19',
+    location: 'Seattle Convention Center',
+    city: 'Seattle',
+    country: 'US',
+    vertical: 'Developer Tools / Enterprise',
+    attendees: 6000,
+    website: 'build.microsoft.com',
+    relevance_score: 9,
+    description: 'Microsoft annual developer conference. GitHub Copilot autonomous agent updates expected. Key competitive intelligence event — watch for Copilot Workspace announcements that compete with Devin.',
+    speakers: [
+      { name: 'Satya Nadella', title: 'CEO', company: 'Microsoft', company_type: 'competitor_adjacent', topic: 'AI transformation', is_competitor: 1, is_target_account: 0 },
+      { name: 'Thomas Dohmke', title: 'CEO', company: 'GitHub', company_type: 'competitor', topic: 'GitHub Copilot autonomous agents', is_competitor: 1, is_target_account: 0 }
+    ]
+  },
+  {
+    name: 'AWS re:Invent 2026',
+    dates: '2026-12-01',
+    location: 'Las Vegas Convention Center',
+    city: 'Las Vegas',
+    country: 'US',
+    vertical: 'Cloud / Enterprise',
+    attendees: 60000,
+    website: 'reinvent.awsevents.com',
+    relevance_score: 8,
+    description: 'Largest annual gathering of enterprise engineering and IT leaders. 60,000+ attendees. Amazon Q Developer updates expected. Major account access opportunity — Stripe, Airbnb, Coinbase all send engineering leadership.',
+    speakers: [
+      { name: 'Matt Garman', title: 'CEO', company: 'AWS', company_type: 'partner', topic: 'Cloud and AI', is_competitor: 0, is_target_account: 0 }
+    ]
+  },
+  {
+    name: 'SAP Sapphire 2026',
+    dates: '2026-06-03',
+    location: 'Orange County Convention Center, Orlando FL',
+    city: 'Orlando',
+    country: 'US',
+    vertical: 'Enterprise Software / DACH',
+    attendees: 20000,
+    website: 'sapphire.sap.com',
+    relevance_score: 9,
+    description: "SAP's flagship annual conference. 20,000+ enterprise IT and engineering leaders. SAP engineering leadership all present. Key DACH enterprise outreach event — SAP customers are prime Devin ICP.",
+    speakers: [
+      { name: 'Christian Klein', title: 'CEO', company: 'SAP', company_type: 'target_account', topic: 'S/4HANA and AI transformation', is_competitor: 0, is_target_account: 1 },
+      { name: 'Thomas Saueressig', title: 'Head of Product Engineering', company: 'SAP', company_type: 'target_account', topic: 'SAP engineering platform', is_competitor: 0, is_target_account: 1 }
+    ]
+  },
+  {
+    name: 'Gartner IT Symposium / Xpo 2026',
+    dates: '2026-10-19',
+    location: 'Walt Disney World, Orlando FL',
+    city: 'Orlando',
+    country: 'US',
+    vertical: 'Enterprise IT / CIO',
+    attendees: 10000,
+    website: 'gartner.com/symposium',
+    relevance_score: 9,
+    description: 'The most important annual event for enterprise CIOs and IT leaders. Gartner named Windsurf a Magic Quadrant Leader for AI Code Assistants. Use this event to reach CTO and CIO-level buyers across all verticals.',
+    speakers: []
+  },
+  {
+    name: 'Stripe Sessions 2026',
+    dates: '2026-05-07',
+    location: 'San Francisco',
+    city: 'San Francisco',
+    country: 'US',
+    vertical: 'Fintech / Developer',
+    attendees: 3000,
+    website: 'stripe.com/sessions',
+    relevance_score: 7,
+    description: 'Stripe annual developer and business conference. Engineering leadership from Stripe and their enterprise customers attending. Good access point for fintech engineering leaders.',
+    speakers: [
+      { name: 'Patrick Collison', title: 'CEO', company: 'Stripe', company_type: 'target_account', topic: 'The future of payments infrastructure', is_competitor: 0, is_target_account: 1 }
+    ]
+  },
+  {
+    name: 'TNW Conference 2026',
+    dates: '2026-06-18',
+    location: 'Amsterdam',
+    city: 'Amsterdam',
+    country: 'Netherlands',
+    vertical: 'Tech / European',
+    attendees: 10000,
+    website: 'thenextweb.com/conference',
+    relevance_score: 7,
+    description: "Europe's leading tech conference. Strong presence from European tech companies and enterprise buyers. Good access to UK and DACH engineering leadership. Relevant for EMEA pipeline.",
+    speakers: []
+  },
+  {
+    name: 'Money20/20 Europe 2026',
+    dates: '2026-06-02',
+    location: 'RAI Amsterdam',
+    city: 'Amsterdam',
+    country: 'Netherlands',
+    vertical: 'Financial Services / Fintech',
+    attendees: 8000,
+    website: 'europe.money2020.com',
+    relevance_score: 8,
+    description: "Europe's largest fintech conference. CTO and CIO level attendance from Barclays, HSBC, Lloyds, Deutsche Bank, ING. Best European access point for financial services engineering leaders.",
+    speakers: []
+  },
+  {
+    name: 'KubeCon + CloudNativeCon Europe 2026',
+    dates: '2026-04-01',
+    location: 'ExCeL London',
+    city: 'London',
+    country: 'UK',
+    vertical: 'Cloud Native / Engineering',
+    attendees: 12000,
+    website: 'events.linuxfoundation.org/kubecon-europe',
+    relevance_score: 7,
+    description: 'Largest cloud-native engineering conference in Europe. Staff and principal engineers from every major tech company attending. Good grassroots access to engineering champions who can advocate for Devin internally.',
+    speakers: []
+  },
+  {
+    name: 'Web Summit 2026',
+    dates: '2026-11-02',
+    location: 'Altice Arena, Lisbon',
+    city: 'Lisbon',
+    country: 'Portugal',
+    vertical: 'Tech / Global',
+    attendees: 70000,
+    website: 'websummit.com',
+    relevance_score: 7,
+    description: "One of the world's largest tech conferences. CXO level attendance from global enterprises. Less engineering-specific but good CTO and CPO access across all verticals.",
+    speakers: []
+  },
+  {
+    name: 'VivaTech 2026',
+    dates: '2026-06-11',
+    location: 'Paris Le Bourget',
+    city: 'Paris',
+    country: 'France',
+    vertical: 'Tech / European Enterprise',
+    attendees: 90000,
+    website: 'vivatechnology.com',
+    relevance_score: 6,
+    description: "Europe's largest startup and tech conference. Strong French and broader European enterprise attendance. Good access to engineering leadership from European companies not heavily represented at US conferences.",
+    speakers: []
+  },
+  {
+    name: 'Collision Conference 2026',
+    dates: '2026-06-23',
+    location: 'Enercare Centre, Toronto',
+    city: 'Toronto',
+    country: 'Canada',
+    vertical: 'Tech / Startup',
+    attendees: 35000,
+    website: 'collisionconf.com',
+    relevance_score: 5,
+    description: "North America's fastest growing tech conference. Good access to startup and scale-up engineering leaders. Less relevant for enterprise Devin prospects.",
+    speakers: []
+  },
+  {
+    name: 'CES 2027',
+    dates: '2027-01-07',
+    location: 'Las Vegas Convention Center',
+    city: 'Las Vegas',
+    country: 'US',
+    vertical: 'Consumer Tech / Enterprise',
+    attendees: 130000,
+    website: 'ces.tech',
+    relevance_score: 6,
+    description: "World's largest consumer tech show. Increasingly relevant for automotive (BMW, Mercedes software-defined vehicles) and entertainment tech engineering leaders.",
+    speakers: []
+  }
+];
+
+function seedConferences() {
+  const count = db.prepare('SELECT COUNT(*) as c FROM conferences').get().c;
   if (count > 0) {
-    console.log(`[seed] ${count} accounts already present — skipping.`);
+    console.log(`[seed] ${count} conferences already present — skipping conference seed.`);
     return;
   }
 
-  const insert = db.prepare(`
-    INSERT INTO accounts (name, industry, territory, eng_headcount, icp_score, deal_value, pain_point, devin_use_case, opening_line)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const confInsert = db.prepare(`
+    INSERT INTO conferences (name, dates, location, city, country, vertical, attendees, website, description, relevance_score)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const speakerInsert = db.prepare(`
+    INSERT INTO conference_speakers (conference_id, name, title, company, company_type, topic, is_competitor, is_target_account)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const tx = db.transaction(() => {
-    for (const row of ALL) {
-      insert.run(...row);
+    let speakerCount = 0;
+    for (const c of CONFERENCES) {
+      const info = confInsert.run(
+        c.name, c.dates, c.location, c.city, c.country,
+        c.vertical, c.attendees, c.website, c.description, c.relevance_score
+      );
+      for (const s of (c.speakers || [])) {
+        speakerInsert.run(
+          info.lastInsertRowid, s.name, s.title, s.company, s.company_type,
+          s.topic, s.is_competitor || 0, s.is_target_account || 0
+        );
+        speakerCount += 1;
+      }
     }
+    console.log(`[seed] Inserted ${CONFERENCES.length} conferences and ${speakerCount} speakers.`);
   });
   tx();
+}
 
-  const compInsert = db.prepare(`
-    INSERT OR IGNORE INTO competitors (name, valuation, arr, differentiator, vs_devin_status, battlecard_json)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  const compTx = db.transaction(() => {
-    for (const c of COMPETITORS) {
-      compInsert.run(c.name, c.valuation, c.arr, c.differentiator, c.vs_devin_status, c.battlecard_json);
-    }
-  });
-  compTx();
+function seed() {
+  const count = db.prepare('SELECT COUNT(*) as c FROM accounts').get().c;
+  if (count === 0) {
+    const insert = db.prepare(`
+      INSERT INTO accounts (name, industry, territory, eng_headcount, icp_score, deal_value, pain_point, devin_use_case, opening_line)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-  console.log(`[seed] Inserted ${ALL.length} accounts and ${COMPETITORS.length} competitors.`);
+    const tx = db.transaction(() => {
+      for (const row of ALL) {
+        insert.run(...row);
+      }
+    });
+    tx();
+
+    const compInsert = db.prepare(`
+      INSERT OR IGNORE INTO competitors (name, valuation, arr, differentiator, vs_devin_status, battlecard_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const compTx = db.transaction(() => {
+      for (const c of COMPETITORS) {
+        compInsert.run(c.name, c.valuation, c.arr, c.differentiator, c.vs_devin_status, c.battlecard_json);
+      }
+    });
+    compTx();
+
+    console.log(`[seed] Inserted ${ALL.length} accounts and ${COMPETITORS.length} competitors.`);
+  } else {
+    console.log(`[seed] ${count} accounts already present — skipping account seed.`);
+  }
+
+  seedConferences();
 }
 
 seed();

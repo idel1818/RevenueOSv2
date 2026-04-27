@@ -81,10 +81,44 @@ db.exec(`
     battlecard_json TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS conferences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    dates TEXT NOT NULL,
+    location TEXT,
+    city TEXT,
+    country TEXT,
+    vertical TEXT,
+    attendees INTEGER,
+    website TEXT,
+    description TEXT,
+    relevance_score INTEGER DEFAULT 5,
+    attending_status TEXT DEFAULT 'undecided',
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS conference_speakers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conference_id INTEGER REFERENCES conferences(id) ON DELETE CASCADE,
+    name TEXT,
+    title TEXT,
+    company TEXT,
+    company_type TEXT,
+    topic TEXT,
+    session_date TEXT,
+    linkedin_url TEXT,
+    is_competitor INTEGER DEFAULT 0,
+    is_target_account INTEGER DEFAULT 0,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_contacts_account ON contacts(account_id);
   CREATE INDEX IF NOT EXISTS idx_outreach_account ON outreach(account_id);
   CREATE INDEX IF NOT EXISTS idx_activities_account ON activities(account_id);
   CREATE INDEX IF NOT EXISTS idx_notes_account ON notes(account_id);
+  CREATE INDEX IF NOT EXISTS idx_speakers_conference ON conference_speakers(conference_id);
 `);
 
 export function logActivity(accountId, type, description) {

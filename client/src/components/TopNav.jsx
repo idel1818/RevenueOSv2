@@ -7,6 +7,7 @@ const LINKS = [
   ['accounts', 'Accounts'],
   ['outreach', 'Outreach'],
   ['intelligence', 'Intelligence'],
+  ['events', 'Events'],
   ['competition', 'Competition'],
   ['salesKit', 'Sales Kit']
 ];

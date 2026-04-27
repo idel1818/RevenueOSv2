@@ -6,12 +6,14 @@ import Outreach from './pages/Outreach.jsx';
 import Intelligence from './pages/Intelligence.jsx';
 import Competition from './pages/Competition.jsx';
 import SalesKit from './pages/SalesKit.jsx';
+import Events from './pages/Events.jsx';
 
 const SECTIONS = {
   command: { label: 'Command', component: Command },
   accounts: { label: 'Accounts', component: Accounts },
   outreach: { label: 'Outreach', component: Outreach },
   intelligence: { label: 'Intelligence', component: Intelligence },
+  events: { label: 'Events', component: Events },
   competition: { label: 'Competition', component: Competition },
   salesKit: { label: 'Sales Kit', component: SalesKit }
 };
